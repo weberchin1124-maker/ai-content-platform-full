@@ -114,10 +114,18 @@ class Content(db.Model):
         db.ForeignKey("project.project_id"),
         nullable=False,
     )
-    user_id = db.Column(
+    creator_user_id = db.Column(
         db.Integer,
         db.ForeignKey("user.user_id"),
     )
+    # Alias for compatibility - routes use user_id
+    @property
+    def user_id(self):
+        return self.creator_user_id
+    
+    @user_id.setter
+    def user_id(self, value):
+        self.creator_user_id = value
     
     title = db.Column(db.String(255), nullable=False)
     primary_type = db.Column(db.String(30), default="text")
@@ -155,7 +163,7 @@ class Content(db.Model):
 
     # 關聯
     project = db.relationship("Project", backref="contents")
-    creator = db.relationship("User", backref="created_contents")
+    creator = db.relationship("User", backref="created_contents", foreign_keys=[creator_user_id])
     
     tags = db.relationship(
         "Tag",
@@ -183,4 +191,4 @@ class ContentVersion(db.Model):
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    content = db.relationship("Content", backref="versions")
+    content = db.relationship("Content", backref="versions", foreign_keys=[content_id])
