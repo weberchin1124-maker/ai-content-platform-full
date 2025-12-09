@@ -20,7 +20,7 @@ def get_my_projects():
     try:
         # 內部取得模型
         Project, ProjectMember = get_project_models() 
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         
         # 邏輯：查詢 ProjectMember 表，找出該使用者參與的所有專案
         memberships = ProjectMember.query.filter_by(user_id=user_id).all()
@@ -57,7 +57,7 @@ def create_project():
     try:
         # 內部取得模型
         Project, ProjectMember = get_project_models()
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
 
         data = request.get_json() or {}
         name = data.get("name")
@@ -108,13 +108,13 @@ def create_project():
 @jwt_required()
 def delete_project(project_id):
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         from app.models import Project, Content, ProjectMember # 確保引入 Content 和 ProjectMember
         project = Project.query.get(project_id)
         
         if not project:
             return jsonify({"message": "專案不存在"}), 404
-        if str(project.owner_id) != str(user_id):
+        if project.owner_id != user_id:
             return jsonify({"message": "無權限刪除"}), 403
             
         # 🚨 關鍵修復：手動刪除所有相關內容和成員

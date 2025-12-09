@@ -56,7 +56,7 @@ def login():
     if not user or not bcrypt.check_password_hash(user.password_hash, password):
         return jsonify({"message": "帳號或密碼錯誤"}), 401
 
-    access_token = create_access_token(identity=str(user.user_id))
+    access_token = create_access_token(identity=user.user_id)
 
     return jsonify({
         "access_token": access_token,
@@ -73,7 +73,7 @@ def login():
 def update_user():
     User = get_user_model() # 內部取得模型
 
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id) 
     
     if not user:

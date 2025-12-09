@@ -25,6 +25,7 @@ class Project(db.Model):
     
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     owner_id = db.Column(
         db.Integer,
@@ -113,10 +114,18 @@ class Content(db.Model):
         db.ForeignKey("project.project_id"),
         nullable=False,
     )
-    user_id = db.Column(
+    creator_user_id = db.Column(
         db.Integer,
         db.ForeignKey("user.user_id"),
     )
+    # Alias for compatibility - routes use user_id
+    @property
+    def user_id(self):
+        return self.creator_user_id
+    
+    @user_id.setter
+    def user_id(self, value):
+        self.creator_user_id = value
     
     title = db.Column(db.String(255), nullable=False)
     primary_type = db.Column(db.String(30), default="text")
@@ -127,6 +136,13 @@ class Content(db.Model):
     # 這是 MVP 最穩定的做法，先把功能跑通再說
     original_prompt = db.Column(db.Text) 
     generated_content = db.Column(db.Text) 
+    
+    # 追蹤最新版本
+    latest_version_id = db.Column(
+        db.Integer,
+        db.ForeignKey("content_version.version_id"),
+        nullable=True
+    )
     
     # 為了配合 content_routes.py，我們加上這兩個別名 (property)
     @property
@@ -147,7 +163,7 @@ class Content(db.Model):
 
     # 關聯
     project = db.relationship("Project", backref="contents")
-    creator = db.relationship("User", backref="created_contents")
+    creator = db.relationship("User", backref="created_contents", foreign_keys=[creator_user_id])
     
     tags = db.relationship(
         "Tag",
@@ -170,7 +186,9 @@ class ContentVersion(db.Model):
     
     prompt = db.Column(db.Text)
     response = db.Column(db.Text) # 補上這個欄位
+    file_url = db.Column(db.String(500))
+    response_ref = db.Column(db.String(500))
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    content = db.relationship("Content", backref="versions")
+    content = db.relationship("Content", backref="versions", foreign_keys=[content_id])

@@ -4,3 +4,5 @@ psycopg2-binary
 Flask-Bcrypt
 Flask-JWT-Extended
 python-dotenv
+Flask-CORS
+pymongo

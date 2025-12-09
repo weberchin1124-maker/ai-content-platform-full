@@ -24,7 +24,7 @@ def _user_in_project(user_id, project_id):
 @jwt_required()
 def list_versions(content_id):
     """列出某個 content 的所有版本"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
 
     content = Content.query.get(content_id)
     if not content:
@@ -66,7 +66,7 @@ def create_new_version(content_id):
       "file_url": null
     }
     """
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json() or {}
 
     content = Content.query.get(content_id)

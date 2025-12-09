@@ -35,7 +35,7 @@ def create_content_for_project(project_id):
             project_id=project_id,
             
             # 🚨 修正重點：改回 user_id (配合你的 models.py)
-            user_id=get_jwt_identity() 
+            user_id=int(get_jwt_identity())
         )
         
         # 3. 處理標籤

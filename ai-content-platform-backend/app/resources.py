@@ -42,7 +42,7 @@ class ContentListResource(MethodView):
         # 3. 建立新的 Content 實例
         new_content = Content(
             project_id=project_id,
-            creator_user_id=user_id,
+            user_id=user_id,
             title=validated_data['title'],
             primary_type=validated_data['primary_type'],
             source_tool=validated_data.get('source_tool'),
