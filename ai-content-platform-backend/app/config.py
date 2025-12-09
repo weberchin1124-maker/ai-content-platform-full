@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 from datetime import timedelta 
 
-# 載入 .env 檔案
 load_dotenv()
 
 class Config:
@@ -18,15 +17,12 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-key")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-jwt-key")
     
-    # 設定 Token 為 1 天後才過期
+    # ✅ 設定 Token 為 1 天後才過期
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=1)
     
     # 3. NoSQL 設定 (MongoDB)
-    # 如果 .env 沒設定，預設連本機 mongodb://localhost:27017/ai_content_platform
+    # 如果 .env 沒設定，預設連本機 mongodb://localhost:27017/
     MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/ai_content_platform")
 
-    # 4. ✅ AI 設定 (新增這行，讀取 .env 中的 Key)
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-    # 5. 其他設定
+    # 4. 其他設定
     PG_SCHEMA = os.getenv("PG_SCHEMA", "g9")
