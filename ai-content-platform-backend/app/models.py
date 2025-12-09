@@ -1,8 +1,9 @@
+# app/models.py
 from datetime import datetime
 from .extensions import db 
 
 # ======================
-# User & Project (保持不變)
+# User & Project
 # ======================
 class User(db.Model):
     __tablename__ = "user"
@@ -32,7 +33,7 @@ class ProjectMember(db.Model):
     user = db.relationship("User", backref="project_memberships")
 
 # ======================
-# Tag & ContentTag (保持不變)
+# Tag & ContentTag
 # ======================
 class ContentTag(db.Model):
     __tablename__ = "content_tag"
@@ -49,7 +50,7 @@ class Tag(db.Model):
     contents = db.relationship("Content", secondary="content_tag", back_populates="tags", lazy="select")
 
 # ======================
-# Content (外殼) - 🚀 核心修改
+# Content (外殼)
 # ======================
 class Content(db.Model):
     __tablename__ = "content"
@@ -59,7 +60,7 @@ class Content(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey("project.project_id"), nullable=False)
     creator_user_id = db.Column(db.Integer, db.ForeignKey("user.user_id"))
     
-    # 🔗 關鍵：指向最新版本的指針 (nullable=True 很重要，防止建立時死鎖)
+    # 🔗 指向最新版本的指針
     latest_version_id = db.Column(db.Integer, db.ForeignKey("content_version.version_id"), nullable=True)
 
     title = db.Column(db.String(255), nullable=False)
@@ -67,7 +68,7 @@ class Content(db.Model):
     source_tool = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # 為了讓 search_routes.py 能繼續運作，我們使用 property 代理最新版本的內容
+    # 為了讓 search_routes.py 能繼續運作，使用 property 代理最新版本的內容
     @property
     def prompt(self):
         return self.latest_version.prompt if self.latest_version else ""
@@ -79,10 +80,8 @@ class Content(db.Model):
     # 關聯
     project = db.relationship("Project", backref="contents")
     creator = db.relationship("User", backref="created_contents")
-    
     tags = db.relationship("Tag", secondary="content_tag", back_populates="contents", lazy="select")
 
-    # 定義與 Version 的關係 (1對多)
     versions = db.relationship(
         "ContentVersion",
         back_populates="content",
@@ -90,16 +89,15 @@ class Content(db.Model):
         cascade="all, delete-orphan"
     )
     
-    # 定義與 Latest Version 的關係 (1對1)
     latest_version = db.relationship(
         "ContentVersion",
         foreign_keys=[latest_version_id],
         uselist=False,
-        post_update=True # 🚀 允許先建立 Content 再回頭更新 ID
+        post_update=True
     )
 
 # ======================
-# ContentVersion (核心資料) - 🚀 核心修改
+# ContentVersion (核心資料 + NoSQL 連結)
 # ======================
 class ContentVersion(db.Model):
     __tablename__ = "content_version"
@@ -111,13 +109,15 @@ class ContentVersion(db.Model):
     
     version_number = db.Column(db.Integer, nullable=False)
     
-    # 這裡存實際資料 (prompt & response)
+    # SQL 儲存 (確保穩定性與備份)
     prompt = db.Column(db.Text)
     response = db.Column(db.Text) 
     
+    # ✨ 新增：NoSQL 參考 ID (用來連結 MongoDB 文件)
+    response_ref = db.Column(db.String(50), nullable=True)
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # 反向關聯
     content = db.relationship(
         "Content", 
         back_populates="versions",
