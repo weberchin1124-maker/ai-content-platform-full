@@ -1,0 +1,55 @@
+### 測試健康檢查
+GET http://127.0.0.1:5000/api/health
+
+
+### 註冊帳號
+POST http://127.0.0.1:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "test1@example.com",
+  "username": "test1",
+  "password": "123456"
+}
+
+
+### 登入（拿 token）
+POST http://127.0.0.1:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test1@example.com",
+  "password": "123456"
+}
+
+### 把上一個 response 的 access_token 貼到下面這一行雙引號裡
+@token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc2NDQ5NDA1NCwianRpIjoiZWY1MDM1YzItYmE3MS00MTRlLTlmNTQtNmRmZmQ1YjE3ZTk5IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjEiLCJuYmYiOjE3NjQ0OTQwNTQsImNzcmYiOiJjZTk2ZjA4Ni1iMjM2LTRjMzEtYTM0MS02ZDJiNDFmMmI5YzEiLCJleHAiOjE3NjQ0OTQ5NTR9.xyuiYJdhD23psvEYxB-JPm38sCDKKc7uhQ6zHJnIkB4"
+
+
+### 建立專案
+POST http://127.0.0.1:5000/api/projects
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc2NDQ5NDA1NCwianRpIjoiZWY1MDM1YzItYmE3MS00MTRlLTlmNTQtNmRmZmQ1YjE3ZTk5IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjEiLCJuYmYiOjE3NjQ0OTQwNTQsImNzcmYiOiJjZTk2ZjA4Ni1iMjM2LTRjMzEtYTM0MS02ZDJiNDFmMmI5YzEiLCJleHAiOjE3NjQ0OTQ5NTR9.xyuiYJdhD23psvEYxB-JPm38sCDKKc7uhQ6zHJnIkB4
+
+{
+  "name": "期中報告 Demo",
+  "description": "測試後端 API"
+}
+
+
+### 在專案裡新增一筆 content
+POST http://127.0.0.1:5000/api/contents/project/1
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc2NDQ5NDA1NCwianRpIjoiZWY1MDM1YzItYmE3MS00MTRlLTlmNTQtNmRmZmQ1YjE3ZTk5IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjEiLCJuYmYiOjE3NjQ0OTQwNTQsImNzcmYiOiJjZTk2ZjA4Ni1iMjM2LTRjMzEtYTM0MS02ZDJiNDFmMmI5YzEiLCJleHAiOjE3NjQ0OTQ5NTR9.xyuiYJdhD23psvEYxB-JPm38sCDKKc7uhQ6zHJnIkB4
+
+{
+  "title": "第一次測試 AI 內容",
+  "primary_type": "text",
+  "source_tool": "ChatGPT",
+  "prompt": "幫我寫一段期中報告簡介"
+}
+
+
+### 列出專案所有內容
+GET http://127.0.0.1:5000/api/contents/project/1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc2NDQ5NDA1NCwianRpIjoiZWY1MDM1YzItYmE3MS00MTRlLTlmNTQtNmRmZmQ1YjE3ZTk5IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjEiLCJuYmYiOjE3NjQ0OTQwNTQsImNzcmYiOiJjZTk2ZjA4Ni1iMjM2LTRjMzEtYTM0MS02ZDJiNDFmMmI5YzEiLCJleHAiOjE3NjQ0OTQ5NTR9.xyuiYJdhD23psvEYxB-JPm38sCDKKc7uhQ6zHJnIkB4
