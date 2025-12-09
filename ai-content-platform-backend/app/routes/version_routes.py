@@ -1,4 +1,3 @@
-#版本管理 API：新增版本、列出版本
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
@@ -12,6 +11,10 @@ version_bp = Blueprint("version", __name__)
 
 
 def _user_in_project(user_id, project_id):
+    try:
+        user_id = int(user_id)
+    except Exception:
+        pass
     return (
         ProjectMember.query
         .filter_by(user_id=user_id, project_id=project_id)
@@ -23,8 +26,11 @@ def _user_in_project(user_id, project_id):
 @version_bp.route("/content/<int:content_id>", methods=["GET"])
 @jwt_required()
 def list_versions(content_id):
-    """列出某個 content 的所有版本"""
     user_id = get_jwt_identity()
+    try:
+        user_id = int(user_id)
+    except Exception:
+        pass
 
     content = Content.query.get(content_id)
     if not content:
@@ -48,8 +54,8 @@ def list_versions(content_id):
             "created_by": v.created_by,
             "created_at": v.created_at.isoformat() if v.created_at else None,
             "prompt": v.prompt,
-            "file_url": v.file_url,
-            "response_ref": str(v.response_ref) if v.response_ref else None,
+            "file_url": v.file_url if hasattr(v, "file_url") else None,
+            "response_ref": str(v.response_ref) if getattr(v, "response_ref", None) else None,
         })
 
     return jsonify(result), 200
@@ -58,15 +64,11 @@ def list_versions(content_id):
 @version_bp.route("/content/<int:content_id>", methods=["POST"])
 @jwt_required()
 def create_new_version(content_id):
-    """
-    幫某個 content 新增一個版本
-    body 範例：
-    {
-      "prompt": "更新後的 prompt",
-      "file_url": null
-    }
-    """
     user_id = get_jwt_identity()
+    try:
+        user_id = int(user_id)
+    except Exception:
+        pass
     data = request.get_json() or {}
 
     content = Content.query.get(content_id)
@@ -79,7 +81,6 @@ def create_new_version(content_id):
     prompt = data.get("prompt")
     file_url = data.get("file_url")
 
-    # 找現在最大版號
     last_version = (
         ContentVersion.query
         .filter_by(content_id=content_id)
@@ -98,7 +99,7 @@ def create_new_version(content_id):
     db.session.add(new_version)
     db.session.flush()
 
-    # 手動更新 latest_version_id（就算 DB 有 trigger，這樣做也沒差）
+    # 更新 latest_version_id（model 現在有這個欄位）
     content.latest_version_id = new_version.version_id
 
     db.session.commit()

@@ -11,15 +11,21 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
 
   const handleSubmit = async () => {
     if (!projectName.trim()) return alert("請輸入專案名稱");
+    
+    // 🚨 關鍵修正：在呼叫 API 之前，強制檢查 Token
+    const token = localStorage.getItem('token');
+    if (!token) {
+        alert("建立失敗：缺少登入驗證。請重新登入系統。");
+        // 為了確保系統穩定，遇到這種情況我們執行登出流程
+        api.logout(); 
+        return; 
+    }
 
     setIsLoading(true);
     try {
       const res = await api.createProject(projectName);
 
       // ✨ 修正重點：同時檢查 message, msg 和 project_id
-      // 後端成功時回傳: { message: "Project created", project_id: 1, ... }
-      // 後端Token過期回傳: { msg: "Token has expired" }
-      
       const successMsg = res.message || res.msg;
       const isSuccess = 
         successMsg === "Project created" || 
@@ -36,10 +42,15 @@ export default function CreateProjectModal({ isOpen, onClose, onProjectCreated }
         const errorMsg = res.message || res.msg || res.error || "未知錯誤";
         
         if (errorMsg.includes("expired") || errorMsg.includes("過期")) {
-           alert("登入時效已過，請重新登入！");
-           api.logout(); // 自動登出
-        } else {
-           alert("建立失敗: " + errorMsg);
+            alert("登入時效已過，請重新登入！");
+            api.logout(); // 自動登出
+        } else if (errorMsg.includes("Missing Authorization Header")) {
+            // 如果後端直接回傳這個錯誤，我們也強制登出
+            alert("建立失敗：請重新登入系統以取得有效權限。"); 
+            api.logout();
+        }
+        else {
+            alert("建立失敗: " + errorMsg);
         }
       }
     } catch (error) {

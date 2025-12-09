@@ -1,228 +1,178 @@
-# app/routes/content_routes.py
+#標籤 API：建立標籤、對 content 加標籤、依標籤查內容
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from datetime import datetime
-# ✨ 引入 mongo_db
-from app.extensions import db, mongo_db 
-from app.models import Project, Content, ContentVersion, Tag 
+from ..extensions import db
+from ..models import (
+    Tag,
+    ContentTag,
+    Content,
+    ProjectMember
+)
 
-content_bp = Blueprint('content', __name__)
+tag_bp = Blueprint("tag", __name__)
 
-# ==========================================
-# 🔧 輔助函式：寫入 MongoDB
-# ==========================================
-def save_to_nosql(data_dict):
-    """
-    將非結構化內容寫入 MongoDB 並回傳 ID (字串格式)
-    如果 MongoDB 沒連線，會跳過並回傳 None (不會讓程式崩潰)
-    """
-    if mongo_db is None:
-        print("⚠️ MongoDB not connected, skipping NoSQL write.")
-        return None
+
+def _user_in_project(user_id, project_id):
     try:
-        # 加上寫入時間
-        data_dict["created_at"] = datetime.utcnow()
-        
-        # 寫入 'contents' 集合 (Collection)
-        result = mongo_db.contents.insert_one(data_dict)
-        
-        # 回傳 ObjectId 字串
-        return str(result.inserted_id)
-    except Exception as e:
-        print(f"❌ NoSQL Write Error: {e}")
-        return None
+        user_id = int(user_id)
+    except Exception:
+        pass
+    return (
+        ProjectMember.query
+        .filter_by(user_id=user_id, project_id=project_id)
+        .first()
+        is not None
+    )
 
-# ==========================================
-# 1. 新增內容 (SQL + NoSQL 雙寫)
-# ==========================================
-@content_bp.route('/project/<int:project_id>', methods=['POST'])
+
+@tag_bp.route("", methods=["GET"])
 @jwt_required()
-def create_content_for_project(project_id):
-    try:
-        user_id = get_jwt_identity()
-        project = Project.query.get(project_id)
-        if not project: return jsonify({"error": "Project not found"}), 404
+def list_tags():
+    q = request.args.get("q")
 
-        data = request.get_json()
-        
-        # 1. SQL: 建立 Content 外殼
-        new_content = Content(
-            project_id=project_id,
-            creator_user_id=user_id,
-            title=data.get('title', '無標題'),
-            primary_type=data.get('primary_type', 'text'),
-            source_tool=data.get('source_tool', 'Manual')
-        )
-        db.session.add(new_content)
-        db.session.flush() # 取得 content_id
+    query = Tag.query
+    if q:
+        query = query.filter(Tag.name.ilike(f"%{q}%"))
 
-        # 2. ✨ NoSQL: 先寫入 MongoDB
-        # 這邊存入完整的非結構化資料
-        nosql_data = {
-            "project_id": project_id,
-            "user_id": user_id,
-            "version_number": 1,
-            "prompt": data.get('prompt', ''),
-            "response": data.get('response', ''),
-            "tags": data.get('tags', []),
-            "metadata": {"source": "Hybrid_System", "type": "initial_creation"}
-        }
-        nosql_id = save_to_nosql(nosql_data)
-
-        # 3. SQL: 建立第一版 Version (並關聯 NoSQL ID)
-        new_version = ContentVersion(
-            content_id=new_content.content_id,
-            created_by=user_id,
-            version_number=1, 
-            prompt=data.get('prompt', ''),
-            response=data.get('response', ''),
-            # ✨ 把 MongoDB 的 ID 存進來 (達成關聯)
-            response_ref=nosql_id 
-        )
-        
-        # 4. SQL: 處理標籤
-        tags_input = data.get('tags', [])
-        for tag_name in tags_input:
-            tag = Tag.query.filter_by(name=tag_name).first()
-            if not tag:
-                tag = Tag(name=tag_name)
-                db.session.add(tag)
-            new_content.tags.append(tag)
-
-        db.session.add(new_version)
-        db.session.flush() # 取得 version_id
-
-        # 5. SQL: 回填 latest_version_id
-        new_content.latest_version_id = new_version.version_id
-        
-        db.session.commit()
-        
-        return jsonify({
-            "message": "Content created (Hybrid)", 
-            "id": new_content.content_id,
-            "title": new_content.title,
-            "nosql_id": nosql_id # 回傳給前端看 (證明有存)
-        }), 201
-
-    except Exception as e:
-        db.session.rollback()
-        import traceback
-        print(f"ERROR: {traceback.format_exc()}")
-        return jsonify({"error": str(e)}), 500
+    tags = query.order_by(Tag.name.asc()).all()
+    result = [
+        {"tag_id": t.tag_id, "name": t.name}
+        for t in tags
+    ]
+    return jsonify(result), 200
 
 
-# ==========================================
-# 2. 編輯內容 (SQL + NoSQL 雙寫)
-# ==========================================
-@content_bp.route('/<int:content_id>', methods=['PUT'])
+@tag_bp.route("", methods=["POST"])
 @jwt_required()
-def update_content(content_id):
+def create_tag():
+    user_id = get_jwt_identity()
     try:
-        user_id = get_jwt_identity()
-        content = Content.query.get(content_id)
-        if not content: return jsonify({"message": "Not found"}), 404
-        
-        if str(content.creator_user_id) != str(user_id):
-             return jsonify({"message": "無權限修改"}), 403
+        user_id = int(user_id)
+    except Exception:
+        pass
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
 
-        data = request.get_json()
-        
-        # 計算版本號
-        current_latest = content.latest_version
-        next_ver_num = (current_latest.version_number + 1) if current_latest else 1
-        
-        # 準備資料
-        new_prompt = data.get('prompt', current_latest.prompt if current_latest else "")
-        new_response = data.get('response', current_latest.response if current_latest else "")
+    if not name:
+        return jsonify({"message": "name 必填"}), 400
 
-        # 1. ✨ NoSQL: 寫入新版本文件
-        nosql_data = {
-            "content_id": content_id,
-            "project_id": content.project_id,
-            "user_id": user_id,
-            "version_number": next_ver_num,
-            "prompt": new_prompt,
-            "response": new_response,
-            "metadata": {"source": "Hybrid_System", "type": "version_update"}
-        }
-        nosql_id = save_to_nosql(nosql_data)
-
-        # 2. SQL: 建立新版本記錄
-        new_version = ContentVersion(
-            content_id=content_id,
-            created_by=user_id,
-            version_number=next_ver_num, 
-            prompt=new_prompt,
-            response=new_response,
-            # ✨ 關聯 MongoDB ID
-            response_ref=nosql_id
-        )
-        
-        db.session.add(new_version)
-        db.session.flush()
-        
-        # 3. SQL: 更新指標
-        content.latest_version_id = new_version.version_id
-        
-        db.session.commit()
-        
+    existed = Tag.query.filter(Tag.name.ilike(name)).first()
+    if existed:
         return jsonify({
-            "message": "Version updated (Hybrid)", 
-            "new_version": next_ver_num,
-            "nosql_id": nosql_id
+            "tag_id": existed.tag_id,
+            "name": existed.name
         }), 200
 
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+    tag = Tag(name=name, created_by=user_id)
+    db.session.add(tag)
+    db.session.commit()
+
+    return jsonify({
+        "tag_id": tag.tag_id,
+        "name": tag.name
+    }), 201
 
 
-# ==========================================
-# 3. 取得內容 (讀取 SQL metadata)
-# ==========================================
-@content_bp.route('/project/<int:project_id>', methods=['GET'])
+@tag_bp.route("/content/<int:content_id>", methods=["POST"])
 @jwt_required()
-def get_contents_by_project(project_id):
+def add_tags_to_content(content_id):
+    user_id = get_jwt_identity()
     try:
-        contents = Content.query.filter_by(project_id=project_id).order_by(Content.created_at.desc()).all()
-        
-        results = []
-        for c in contents:
-            latest = c.latest_version
-            prompt_text = latest.prompt if latest else ""
-            response_text = latest.response if latest else ""
-            
-            results.append({
-                "id": c.content_id,
-                "project_id": c.project_id,
-                "title": c.title,
-                "prompt": prompt_text,
-                "response": response_text,
-                "tags": [t.name for t in c.tags],
-                "date": c.created_at.isoformat() if c.created_at else None,
-                "version": latest.version_number if latest else 0,
-                # ✨ 回傳 NoSQL ID 證明關聯存在
-                "nosql_ref": latest.response_ref if latest else None 
-            })
-        return jsonify(results), 200
-    except Exception as e:
-        print(f"Get Error: {e}")
-        return jsonify({"error": str(e)}), 500
+        user_id = int(user_id)
+    except Exception:
+        pass
+    data = request.get_json() or {}
+    names = data.get("tags") or []
 
-# ==========================================
-# 4. 刪除內容
-# ==========================================
-@content_bp.route('/<int:content_id>', methods=['DELETE'])
+    content = Content.query.get(content_id)
+    if not content:
+        return jsonify({"message": "content 不存在"}), 404
+
+    if not _user_in_project(user_id, content.project_id):
+        return jsonify({"message": "你沒有這個專案的權限"}), 403
+
+    if not isinstance(names, list) or len(names) == 0:
+        return jsonify({"message": "tags 必須是非空的陣列"}), 400
+
+    attached = []
+    for raw_name in names:
+        name = (raw_name or "").strip()
+        if not name:
+            continue
+
+        tag = Tag.query.filter(Tag.name.ilike(name)).first()
+        if not tag:
+            tag = Tag(name=name, created_by=user_id)
+            db.session.add(tag)
+            db.session.flush()
+
+        exists_ct = ContentTag.query.filter_by(
+            content_id=content_id,
+            tag_id=tag.tag_id
+        ).first()
+        if not exists_ct:
+            ct = ContentTag(content_id=content_id, tag_id=tag.tag_id)
+            db.session.add(ct)
+
+        attached.append({
+            "tag_id": tag.tag_id,
+            "name": tag.name
+        })
+
+    db.session.commit()
+
+    return jsonify({
+        "content_id": content_id,
+        "tags": attached
+    }), 200
+
+
+@tag_bp.route("/content/<int:content_id>", methods=["GET"])
 @jwt_required()
-def delete_content(content_id):
+def list_content_tags(content_id):
+    user_id = get_jwt_identity()
     try:
-        content = Content.query.get(content_id)
-        if content:
-            # SQL Cascade 會自動刪除 ContentVersion
-            # (NoSQL 資料通常保留作為稽核，或需另外寫排程刪除，MVP 先不刪)
-            db.session.delete(content)
-            db.session.commit()
-            return jsonify({"message": "Deleted"}), 200
-        return jsonify({"message": "Not found"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        user_id = int(user_id)
+    except Exception:
+        pass
+    content = Content.query.get(content_id)
+
+    if not content:
+        return jsonify({"message": "content 不存在"}), 404
+
+    if not _user_in_project(user_id, content.project_id):
+        return jsonify({"message": "你沒有這個專案的權限"}), 403
+
+    # 使用 model 定義的關聯 .tags
+    tags = content.tags
+
+    result = [
+        {"tag_id": t.tag_id, "name": t.name}
+        for t in tags
+    ]
+    return jsonify(result), 200
+
+
+@tag_bp.route("/<int:tag_id>/contents", methods=["GET"])
+@jwt_required()
+def list_contents_by_tag(tag_id):
+    tag = Tag.query.get(tag_id)
+    if not tag:
+        return jsonify({"message": "tag 不存在"}), 404
+
+    # 使用 model 定義的關聯 .contents
+    cts = tag.contents
+
+    result = []
+    for c in cts:
+        result.append({
+            "content_id": c.content_id,
+            "title": c.title,
+            "project_id": c.project_id,
+        })
+
+    return jsonify({
+        "tag_id": tag.tag_id,
+        "tag_name": tag.name,
+        "contents": result
+    }), 200

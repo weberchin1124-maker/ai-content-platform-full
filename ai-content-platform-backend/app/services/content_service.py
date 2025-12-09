@@ -6,19 +6,20 @@ def create_content_logic(project_id, user_id, data):
     處理建立內容的完整流程：SQL 寫入 -> (未來) NoSQL 寫入 -> 提交
     """
     try:
-        # 1. SQL: 建立 Content
+        # 1. SQL: 建立 Content（改為 user_id）
         content = Content(
             project_id=project_id,
-            creator_user_id=user_id,
+            user_id=user_id,
             title=data.get("title"),
             primary_type=data.get("primary_type", "text"),
             source_tool=data.get("source_tool"),
+            original_prompt=data.get("prompt"),
+            generated_content=data.get("response", "")
         )
         db.session.add(content)
         db.session.flush() # 取得 content_id
 
         # 2. (未來) NoSQL: 在這裡呼叫 MongoDB/VectorDB 寫入 Prompt/Response
-        # nosql_id = insert_to_mongodb(data.get("prompt"), ...)
         nosql_id = None # 暫時範例
 
         # 3. SQL: 建立 Version
@@ -28,7 +29,7 @@ def create_content_logic(project_id, user_id, data):
             version_number=1,
             prompt=data.get("prompt"),
             file_url=data.get("file_url"),
-            # response_ref=nosql_id  <-- 之後把 NoSQL ID 存進來
+            response_ref=nosql_id
         )
         db.session.add(version)
         db.session.flush()

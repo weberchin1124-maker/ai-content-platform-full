@@ -1,7 +1,25 @@
 // src/components/Sidebar.jsx
 import { useNavigate } from 'react-router-dom';
 
-function Sidebar({ projects, activeProjectId, onSelect, user, onLogout, onNewProject, onDeleteProject }) {
+// 🛠️ 修正模型清單：將 1.0 Pro 換成 1.5 Pro
+const AVAILABLE_MODELS = [
+  { id: 'gemini-1.5-flash', name: '⚡ Gemini 1.5 Flash (快速)' },
+  // 👇 修改這一行：改用 gemini-1.5-pro
+  { id: 'gemini-1.5-pro', name: '🧠 Gemini 1.5 Pro (聰明)' }, 
+  { id: 'gemini-2.0-flash', name: '🚀 Gemini 2.0 Flash (最新)' },
+];
+
+function Sidebar({ 
+  projects, 
+  activeProjectId, 
+  onSelect, 
+  user, 
+  onLogout, 
+  onNewProject, 
+  onDeleteProject,
+  currentModel, 
+  onModelChange 
+}) {
   const navigate = useNavigate();
 
   return (
@@ -31,6 +49,26 @@ function Sidebar({ projects, activeProjectId, onSelect, user, onLogout, onNewPro
         <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>+</span> 建立新專案
       </button>
 
+      {/* AI 模型選擇器 */}
+      <div style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#161b22', borderRadius: '6px', border: '1px solid #30363d' }}>
+        <label style={{ display: 'block', fontSize: '0.75rem', color: '#8b949e', marginBottom: '5px' }}>
+          🧠 AI 核心模型
+        </label>
+        <select 
+          value={currentModel}
+          onChange={(e) => onModelChange(e.target.value)}
+          style={{
+            width: '100%', padding: '8px', backgroundColor: '#0d1117', color: '#e6edf3',
+            border: '1px solid #30363d', borderRadius: '4px', fontSize: '0.85rem',
+            cursor: 'pointer', outline: 'none'
+          }}
+        >
+          {AVAILABLE_MODELS.map(m => (
+            <option key={m.id} value={m.id}>{m.name}</option>
+          ))}
+        </select>
+      </div>
+
       {/* 專案列表區 */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         <p style={{ padding: '0 10px', fontSize: '0.8rem', color: '#8b949e', marginBottom: '5px' }}>我的專案</p>
@@ -38,24 +76,29 @@ function Sidebar({ projects, activeProjectId, onSelect, user, onLogout, onNewPro
           {projects.map(project => (
             <div 
               key={project.id}
-              onClick={() => onSelect(project.id)}
               style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', // ✨ 關鍵：左右排開
-                padding: '10px', borderRadius: '6px', cursor: 'pointer',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                padding: '10px', borderRadius: '6px', 
                 backgroundColor: activeProjectId === project.id ? '#1f6feb' : 'transparent',
                 color: activeProjectId === project.id ? 'white' : '#c9d1d9',
                 transition: '0.2s', fontSize: '0.9rem'
               }}
-              className="project-item" // 可以配合 CSS 做 hover 效果
+              className="project-item" 
             >
-              <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+              <div 
+                onClick={() => onSelect(project.id)} 
+                style={{ 
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1,
+                  cursor: 'pointer' 
+                }}
+              >
                 # {project.name}
               </div>
               
-              {/* ✨ 刪除按鈕：點擊時要阻止冒泡 (stopPropagation)，不然會觸發切換專案 */}
               <button 
                 onClick={(e) => { 
                   e.stopPropagation(); 
+                  console.log("🗑️ 點擊刪除專案:", project.id);
                   if(window.confirm(`確定要刪除專案「${project.name}」嗎？\n裡面的筆記也會一起消失喔！`)) {
                     onDeleteProject(project.id);
                   }
@@ -63,7 +106,7 @@ function Sidebar({ projects, activeProjectId, onSelect, user, onLogout, onNewPro
                 style={{
                   background: 'none', border: 'none', color: '#ff7b72', 
                   cursor: 'pointer', fontSize: '1rem', padding: '0 5px',
-                  opacity: 0.7, transition: 'opacity 0.2s'
+                  opacity: 0.7, marginLeft: '8px', zIndex: 10
                 }}
                 title="刪除專案"
                 onMouseOver={(e) => e.target.style.opacity = 1}

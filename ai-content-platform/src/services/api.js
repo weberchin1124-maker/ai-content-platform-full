@@ -39,7 +39,14 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, email, password }),
     });
-    return await res.json();
+    const data = await res.json();
+
+    // 🚨 關鍵修正：如果註冊成功，直接模擬登入，儲存 Token
+    if (res.ok && data.access_token) {
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+    }
+    return data;
   },
 
   // 更新使用者資料
@@ -73,7 +80,7 @@ export const api = {
   createProject: async (name) => {
     const res = await fetch(`${API_URL}/projects`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(), // ✅ Headers 正確
       body: JSON.stringify({ name }),
     });
     return res.json();
