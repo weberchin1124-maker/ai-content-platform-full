@@ -47,7 +47,10 @@ export default function Dashboard() {
       if (Array.isArray(data)) {
         const results = data.map(item => ({
           id: String(item.id),
-          version: "v1.0",
+          
+          // 🚨 關鍵修改：讀取後端回傳的 version，如果是 0 或 undefined 預設顯示 v1.0
+          version: item.version ? `v${item.version}.0` : "v1.0",
+          
           date: item.date ? item.date.slice(0, 10) : '剛剛',
           tags: item.tags || [],
           prompt: item.prompt,
@@ -71,8 +74,7 @@ export default function Dashboard() {
     fetchProjects(); 
   }, []);
 
-  // 🚨 關鍵修復：監聽 activeProjectId 改變
-  // 因為 fetchProjectContents 已經在上面定義了，這裡呼叫就不會報錯了
+  // 監聽 activeProjectId 改變
   useEffect(() => {
     if (activeProjectId) {
       fetchProjectContents(activeProjectId);
@@ -88,7 +90,6 @@ export default function Dashboard() {
   const handleSearch = async (text) => {
     setSearchTerm(text);
     if (!text) {
-      // 如果清空搜尋，就重新抓取目前專案的所有內容
       if (activeProjectId) fetchProjectContents(activeProjectId);
       return;
     }
@@ -97,7 +98,7 @@ export default function Dashboard() {
       const res = await api.search(text); 
       const results = res.results.map(item => ({
         id: item.mongo_id || item.id,
-        version: "v1.0",
+        version: "v1.0", // 搜尋結果暫時沒帶版本號，這裡可以優化
         date: item.created_at ? item.created_at.slice(0, 10) : '剛剛',
         tags: item.tags || [],
         prompt: item.prompt || item.original_prompt,
@@ -111,7 +112,7 @@ export default function Dashboard() {
   const handleNewPrompt = async (prompt, tags) => {
     if (!activeProjectId) return alert("請先建立或選擇一個專案！");
     
-    // 樂觀更新
+    // 樂觀更新 (預設 v1.0)
     const tempId = Date.now();
     const newItem = { id: tempId, version: "v1.0", date: new Date().toISOString().slice(0, 10), tags: tags.length > 0 ? tags : ["未分類"], prompt: prompt, response: "" };
     setContents([newItem, ...contents]);
@@ -120,7 +121,7 @@ export default function Dashboard() {
       await api.createContent(activeProjectId, {
         title: prompt.slice(0, 10), prompt: prompt, response: "", source_tool: "Manual Note", tags: tags
       });
-      // 為了保險，這裡可以不重新抓取，相信樂觀更新
+      // 建議：可以在這裡也呼叫 fetchProjectContents 確保 ID 正確，但為了效能先不加
     } catch (e) {
       alert("新增失敗");
       setContents(prev => prev.filter(item => item.id !== tempId));
@@ -156,14 +157,23 @@ export default function Dashboard() {
 
   // 編輯內容
   const handleUpdateContent = async (contentId, newPrompt) => {
+    // 1. 先做樂觀更新 (只更新文字，版本號暫時不變，等抓取)
     const originalContents = [...contents];
     setContents(contents.map(item => item.id === contentId ? { ...item, prompt: newPrompt } : item));
 
     try {
-      await api.updateContent(contentId, newPrompt);
+      // 2. 呼叫後端更新 (這會產生新版本)
+      const res = await api.updateContent(contentId, newPrompt);
+      
+      // 3. 🚨 關鍵修改：成功後，重新抓取整個列表
+      // 這樣才能讓畫面上的版本號從 v1.0 跳到 v2.0
+      if (activeProjectId) {
+         fetchProjectContents(activeProjectId);
+      }
+      
     } catch (e) {
       alert("修改失敗");
-      setContents(originalContents);
+      setContents(originalContents); // 失敗復原
     }
   };
 

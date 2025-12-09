@@ -66,8 +66,23 @@ function ContentCard({ id, version, date, prompt, response, tags, onDelete, onUp
            )}
         </div>
 
-        {/* 右邊：日期 */}
-        <span style={{ fontSize: '0.85rem', color: '#8b949e' }}>{date}</span>
+        {/* 右邊：版本與日期 (✨ 這裡加回去了！) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* 版本號徽章 */}
+            <span style={{ 
+                fontSize: '0.75rem', 
+                color: '#c9d1d9', 
+                backgroundColor: '#30363d', 
+                padding: '2px 6px', 
+                borderRadius: '4px',
+                border: '1px solid #30363d'
+            }}>
+                {version || "v1.0"}
+            </span>
+            
+            {/* 日期 */}
+            <span style={{ fontSize: '0.85rem', color: '#8b949e' }}>{date}</span>
+        </div>
       </div>
 
       {/* 內容區：合併顯示，不再分 User/AI，視為一體筆記 */}
