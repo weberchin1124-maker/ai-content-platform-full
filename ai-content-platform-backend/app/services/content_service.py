@@ -9,10 +9,12 @@ def create_content_logic(project_id, user_id, data):
         # 1. SQL: 建立 Content
         content = Content(
             project_id=project_id,
-            creator_user_id=user_id,
+            user_id=user_id,
             title=data.get("title"),
             primary_type=data.get("primary_type", "text"),
             source_tool=data.get("source_tool"),
+            original_prompt=data.get("prompt"),
+            generated_content=data.get("response"),
         )
         db.session.add(content)
         db.session.flush() # 取得 content_id
@@ -27,6 +29,7 @@ def create_content_logic(project_id, user_id, data):
             created_by=user_id,
             version_number=1,
             prompt=data.get("prompt"),
+            response=data.get("response"),
             file_url=data.get("file_url"),
             # response_ref=nosql_id  <-- 之後把 NoSQL ID 存進來
         )

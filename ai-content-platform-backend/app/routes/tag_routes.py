@@ -43,7 +43,7 @@ def list_tags():
 @jwt_required()
 def create_tag():
     """建立新的標籤（全系統共用）"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json() or {}
     name = (data.get("name") or "").strip()
 
@@ -79,7 +79,7 @@ def add_tags_to_content(content_id):
     }
     如果標籤不存在會自動建立
     """
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json() or {}
     names = data.get("tags") or []
 
@@ -132,7 +132,7 @@ def add_tags_to_content(content_id):
 @jwt_required()
 def list_content_tags(content_id):
     """列出某個 content 的所有標籤"""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     content = Content.query.get(content_id)
 
     if not content:
@@ -141,7 +141,7 @@ def list_content_tags(content_id):
     if not _user_in_project(user_id, content.project_id):
         return jsonify({"message": "你沒有這個專案的權限"}), 403
 
-    tags = [ct.tag for ct in content.content_tags]
+    tags = content.tags
 
     result = [
         {"tag_id": t.tag_id, "name": t.name}
@@ -159,7 +159,7 @@ def list_contents_by_tag(tag_id):
         return jsonify({"message": "tag 不存在"}), 404
 
     # 這裡 demo 簡單版：列出所有有這個 tag 的 content（沒有再做專案權限過濾）
-    cts = [ct.content for ct in tag.content_tags]
+    cts = tag.contents
 
     result = []
     for c in cts:

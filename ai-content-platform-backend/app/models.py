@@ -25,6 +25,7 @@ class Project(db.Model):
     
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     owner_id = db.Column(
         db.Integer,
@@ -128,6 +129,13 @@ class Content(db.Model):
     original_prompt = db.Column(db.Text) 
     generated_content = db.Column(db.Text) 
     
+    # 追蹤最新版本
+    latest_version_id = db.Column(
+        db.Integer,
+        db.ForeignKey("content_version.version_id"),
+        nullable=True
+    )
+    
     # 為了配合 content_routes.py，我們加上這兩個別名 (property)
     @property
     def prompt(self):
@@ -170,6 +178,8 @@ class ContentVersion(db.Model):
     
     prompt = db.Column(db.Text)
     response = db.Column(db.Text) # 補上這個欄位
+    file_url = db.Column(db.String(500))
+    response_ref = db.Column(db.String(500))
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

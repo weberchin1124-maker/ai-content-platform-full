@@ -7,10 +7,10 @@ load_dotenv()
 
 class Config:
     # 格式: postgresql://username:password@host:port/database
-    # 這裡將你的 Supabase 連線字串設為預設值 (密碼中的 @ 已改為 %40)
+    # 如果環境變數中有 DATABASE_URL 就用它，否則用 sqlite 作為 fallback
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "DATABASE_URL", 
-        "postgresql://postgres:aA11423040%40@db.jfryzpggvqstuzrbdpkp.supabase.co:5432/postgres"
+        "sqlite:///instance/dev.db"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
